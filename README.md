@@ -1,6 +1,6 @@
 # multichat
 
-강사 PC(server)와 수강생 PC(client)가 LAN으로 채팅 + 파일 공유하는 Windows 앱.
+오프라인 강의 진행시에 강의장 안에서 강사 PC(server)와 수강생 PC(client)가 LAN으로 채팅 + 파일 공유하는 Windows 앱.
 
 ## 다운로드
 - [강사용 서버 설치 파일 (ChatServerSetup.exe)](dist/ChatServerSetup.exe)
