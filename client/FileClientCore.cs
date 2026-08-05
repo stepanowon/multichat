@@ -67,6 +67,23 @@ public class FileClientCore
         }
     }
 
+    /// <summary>서버 세션의 채팅 암호화 키를 받아온다. 서버가 시작되어 있어야 한다.</summary>
+    public async Task<byte[]> GetKeyAsync()
+    {
+        using var tcp = new TcpClient();
+        await tcp.ConnectAsync(_host, _port);
+        var stream = tcp.GetStream();
+        var writer = new StreamWriter(stream, LineProtocol.NoBom) { AutoFlush = true };
+        await writer.WriteLineAsync("GETKEY");
+
+        var status = await ReadRawLineAsync(stream);
+        if (status != "OK") throw new IOException("암호화 키를 가져오지 못했습니다: " + status);
+
+        var keyBuf = new byte[CryptoUtil.KeySizeBytes];
+        await ReadExactAsync(stream, keyBuf, keyBuf.Length);
+        return keyBuf;
+    }
+
     private static async Task<string> ReadRawLineAsync(NetworkStream stream)
     {
         var sb = new StringBuilder();

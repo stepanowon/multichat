@@ -30,22 +30,27 @@ public class ChatEnvelope
     public List<ChatEnvelope>? History { get; set; }
 }
 
-/// <summary>줄바꿈으로 구분된 JSON 메시지를 스트림에 쓰고 읽는다. BOM 없는 UTF-8 고정.</summary>
+/// <summary>
+/// 줄바꿈으로 구분된 JSON 메시지를 스트림에 쓰고 읽는다. BOM 없는 UTF-8 고정.
+/// 각 줄은 AES-256-GCM으로 암호화된 base64 블롭이라 네트워크를 스니핑해도 평문이 보이지 않는다.
+/// </summary>
 public static class LineProtocol
 {
     public static readonly Encoding NoBom = new UTF8Encoding(false);
 
-    public static async Task SendAsync(StreamWriter writer, ChatEnvelope env)
+    public static async Task SendAsync(StreamWriter writer, ChatEnvelope env, byte[] key)
     {
         var json = JsonSerializer.Serialize(env);
-        await writer.WriteLineAsync(json);
+        var encrypted = CryptoUtil.Encrypt(key, json);
+        await writer.WriteLineAsync(encrypted);
         await writer.FlushAsync();
     }
 
-    public static async Task<ChatEnvelope?> ReceiveAsync(StreamReader reader)
+    public static async Task<ChatEnvelope?> ReceiveAsync(StreamReader reader, byte[] key)
     {
         var line = await reader.ReadLineAsync();
         if (line == null) return null;
-        return JsonSerializer.Deserialize<ChatEnvelope>(line);
+        var json = CryptoUtil.Decrypt(key, line);
+        return JsonSerializer.Deserialize<ChatEnvelope>(json);
     }
 }

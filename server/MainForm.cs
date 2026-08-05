@@ -153,8 +153,10 @@ public class MainForm : Form
             return;
         }
 
+        var key = CryptoUtil.GenerateKey();
         _files.SharedFolder = _folderBox.Text;
-        _chat.Start(chatPort);
+        _files.SessionKey = key;
+        _chat.Start(chatPort, key);
         _files.Start(filePort);
 
         _startBtn.Enabled = false;

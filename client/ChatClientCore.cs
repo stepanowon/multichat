@@ -9,20 +9,23 @@ public class ChatClientCore
     private TcpClient? _tcp;
     private StreamWriter? _writer;
     private StreamReader? _reader;
+    private byte[] _key = Array.Empty<byte>();
 
     public event Action<ChatEnvelope>? MessageReceived;
     public event Action<List<ChatEnvelope>>? HistoryReceived;
     public event Action? Disconnected;
 
-    public async Task ConnectAsync(string host, int port, string name)
+    /// <summary>key는 미리 파일 포트의 GETKEY로 받아온 서버 세션 암호화 키.</summary>
+    public async Task ConnectAsync(string host, int port, string name, byte[] key)
     {
+        _key = key;
         _tcp = new TcpClient();
         await _tcp.ConnectAsync(host, port);
         var stream = _tcp.GetStream();
         _reader = new StreamReader(stream, LineProtocol.NoBom);
         _writer = new StreamWriter(stream, LineProtocol.NoBom) { AutoFlush = false };
 
-        await LineProtocol.SendAsync(_writer, new ChatEnvelope { Type = MsgType.Join, From = name });
+        await LineProtocol.SendAsync(_writer, new ChatEnvelope { Type = MsgType.Join, From = name }, _key);
 
         _ = ReceiveLoopAsync();
     }
@@ -33,7 +36,7 @@ public class ChatClientCore
         {
             while (true)
             {
-                var env = await LineProtocol.ReceiveAsync(_reader!);
+                var env = await LineProtocol.ReceiveAsync(_reader!, _key);
                 if (env == null) break;
 
                 if (env.Type == MsgType.History && env.History != null)
@@ -52,12 +55,12 @@ public class ChatClientCore
     public async Task SendAsync(string text, ChatTarget target)
     {
         if (_writer == null) return;
-        await LineProtocol.SendAsync(_writer, new ChatEnvelope { Type = MsgType.Chat, Target = target, Text = text });
+        await LineProtocol.SendAsync(_writer, new ChatEnvelope { Type = MsgType.Chat, Target = target, Text = text }, _key);
     }
 
     public async Task SendImageAsync(byte[] pngBytes, ChatTarget target)
     {
         if (_writer == null) return;
-        await LineProtocol.SendAsync(_writer, new ChatEnvelope { Type = MsgType.Chat, Target = target, Image = pngBytes });
+        await LineProtocol.SendAsync(_writer, new ChatEnvelope { Type = MsgType.Chat, Target = target, Image = pngBytes }, _key);
     }
 }

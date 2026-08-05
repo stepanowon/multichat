@@ -16,6 +16,7 @@ internal class ConnectedClient
 public class ChatServerCore
 {
     private TcpListener? _listener;
+    private byte[] _key = Array.Empty<byte>();
     private readonly List<ConnectedClient> _clients = new();
     // ponytail: 인메모리 이력. 서버 재시작 시 소실됨 - 필요해지면 파일로 영속화.
     private readonly List<ChatEnvelope> _instructorHistory = new();
@@ -27,8 +28,10 @@ public class ChatServerCore
     public event Action<string>? ClientListChanged;
     public event Action<string>? Log;
 
-    public async void Start(int port)
+    /// <summary>이 세션에서 모든 채팅 메시지를 암호화할 키. 서버 시작 시 한 번 생성해서 전달한다.</summary>
+    public async void Start(int port, byte[] key)
     {
+        _key = key;
         _listener = new TcpListener(IPAddress.Any, port);
         _listener.Start();
         Log?.Invoke($"채팅 서버 시작: 포트 {port}");
@@ -52,7 +55,7 @@ public class ChatServerCore
 
         try
         {
-            var join = await LineProtocol.ReceiveAsync(reader);
+            var join = await LineProtocol.ReceiveAsync(reader, _key);
             if (join == null || join.Type != MsgType.Join || string.IsNullOrWhiteSpace(join.From))
             {
                 tcp.Close();
@@ -72,13 +75,13 @@ public class ChatServerCore
 
             List<ChatEnvelope> historySnapshot;
             lock (_lock) historySnapshot = new List<ChatEnvelope>(_instructorHistory);
-            await LineProtocol.SendAsync(writer, new ChatEnvelope { Type = MsgType.History, History = historySnapshot });
+            await LineProtocol.SendAsync(writer, new ChatEnvelope { Type = MsgType.History, History = historySnapshot }, _key);
 
             await BroadcastSystemAsync($"{client.Name} 님이 입장했습니다.", exclude: client);
 
             while (true)
             {
-                var env = await LineProtocol.ReceiveAsync(reader);
+                var env = await LineProtocol.ReceiveAsync(reader, _key);
                 if (env == null) break;
                 if (env.Type != MsgType.Chat) continue;
 
@@ -145,7 +148,7 @@ public class ChatServerCore
         lock (_lock) target = _clients.FirstOrDefault(c => c.Name == targetStudent);
         if (target == null) return false;
 
-        try { await LineProtocol.SendAsync(target.Writer, env); }
+        try { await LineProtocol.SendAsync(target.Writer, env, _key); }
         catch { return false; }
         return true;
     }
@@ -162,7 +165,7 @@ public class ChatServerCore
         lock (_lock) targets = _clients.Where(c => c != exclude).ToList();
         foreach (var c in targets)
         {
-            try { await LineProtocol.SendAsync(c.Writer, env); }
+            try { await LineProtocol.SendAsync(c.Writer, env, _key); }
             catch { /* 해당 클라이언트는 자신의 읽기 루프에서 정리됨 */ }
         }
     }

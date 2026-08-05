@@ -18,6 +18,7 @@ public class MainForm : Form
     private static readonly Color AccentColor = Color.FromArgb(0, 99, 177);
     private static readonly Color PanelBg = Color.FromArgb(247, 247, 249);
 
+    private readonly Label _encryptionLabel = new() { Text = "🔒 암호화 연결 확인 중...", Font = BaseFont, ForeColor = Color.Gray, AutoSize = true };
     private readonly ChatLogView _chatLog = new() { Dock = DockStyle.Fill };
     private readonly TextBox _inputBox = new() { Dock = DockStyle.Fill, Multiline = true, AcceptsReturn = true, Font = BaseFont, ScrollBars = ScrollBars.Vertical };
     private readonly RadioButton _toAll = new() { Text = "전체 수강생", Checked = true, AutoSize = true, Font = BaseFont };
@@ -74,12 +75,17 @@ public class MainForm : Form
         {
             try
             {
-                await _chat.ConnectAsync(host, chatPort, name);
+                var key = await _files.GetKeyAsync();
+                await _chat.ConnectAsync(host, chatPort, name, key);
+                _encryptionLabel.Text = "🔒 서버-클라이언트 종단 암호화 연결됨 (AES-256-GCM)";
+                _encryptionLabel.ForeColor = Color.FromArgb(0, 140, 60);
                 AppendSystem("서버에 접속했습니다.");
                 await RefreshFileListAsync();
             }
             catch (Exception ex)
             {
+                _encryptionLabel.Text = "⚠ 암호화 연결 실패";
+                _encryptionLabel.ForeColor = Color.FromArgb(198, 40, 40);
                 MessageBox.Show("서버 접속 실패: " + ex.Message);
             }
         };
@@ -87,9 +93,11 @@ public class MainForm : Form
 
     private void BuildLayout(string host, int chatPort)
     {
-        var topPanel = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = PanelBg, Padding = new Padding(12, 8, 12, 8) };
+        var topPanel = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = PanelBg, Padding = new Padding(12, 8, 12, 8) };
         topPanel.Controls.Add(new Label { Text = $"수강생 채팅 - {_myName}", Font = HeaderFont, AutoSize = true, Location = new Point(12, 6) });
         topPanel.Controls.Add(new Label { Text = $"서버: {host}:{chatPort}", Font = BaseFont, ForeColor = Color.Gray, AutoSize = true, Location = new Point(12, 32) });
+        topPanel.Controls.Add(_encryptionLabel);
+        _encryptionLabel.Location = new Point(12, 54);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 680, SplitterWidth = 6 };
 
