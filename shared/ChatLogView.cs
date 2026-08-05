@@ -112,7 +112,7 @@ public class ChatLogView : Panel
         };
         var header = new Label
         {
-            Text = $"[{time:HH:mm:ss}] {sender}{label}",
+            Text = $"[{time:MM/dd HH:mm:ss}] {sender}{label}",
             AutoSize = true,
             Font = new Font(Font, type == MsgType.System ? (FontStyle.Bold | FontStyle.Italic) : FontStyle.Bold),
             ForeColor = color,

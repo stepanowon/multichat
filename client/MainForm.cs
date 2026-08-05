@@ -178,6 +178,8 @@ public class MainForm : Form
         using var dlg = new SaveFileDialog { Filter = "Markdown|*.md", FileName = $"chat_{DateTime.Now:yyyyMMdd_HHmmss}.md" };
         if (dlg.ShowDialog() != DialogResult.OK) return;
 
+        var imageDir = Path.Combine(Path.GetDirectoryName(dlg.FileName)!, "export_images");
+
         var sb = new StringBuilder();
         sb.AppendLine($"# 채팅 기록 ({DateTime.Now:yyyy-MM-dd HH:mm})");
         sb.AppendLine();
@@ -189,11 +191,14 @@ public class MainForm : Form
                 ChatTarget.Specific => $" (개인 메시지{(m.To != null ? " → " + m.To : "")})",
                 _ => ""
             };
-            sb.AppendLine($"- **[{m.Time:HH:mm:ss}] {m.From}{target}**:");
+            sb.AppendLine($"- **[{m.Time:MM/dd HH:mm:ss}] {m.From}{target}**:");
             sb.AppendLine();
             if (m.Image != null)
             {
-                sb.AppendLine("  (이미지 메시지 - 내보내기에는 포함되지 않음)");
+                Directory.CreateDirectory(imageDir);
+                var imageFileName = $"img_{m.Time:yyyyMMdd_HHmmss_fff}.png";
+                File.WriteAllBytes(Path.Combine(imageDir, imageFileName), m.Image);
+                sb.AppendLine($"  ![이미지](export_images/{imageFileName})");
             }
             else
             {
