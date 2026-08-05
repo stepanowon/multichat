@@ -1,0 +1,19 @@
+# 빌드 산출물 (dotnet build/publish 결과 - 소스에서 항상 재생성 가능)
+[Bb]in/
+[Oo]bj/
+publish/
+
+# dist/ 는 README 다운로드 링크가 가리키는 배포용 설치 파일이라 의도적으로 추적함
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# 사용자 로컬 이력 파일이 실수로 커밋되는 것 방지 (실제 저장 위치는 %AppData%\MultiChat 지만 혹시 대비)
+*.jsonl
+
+# OS 잡파일
+Thumbs.db
+.DS_Store
