@@ -1,5 +1,7 @@
 # multichat
 
+> 🤖 이 프로젝트는 [Claude Code](https://claude.com/claude-code)로 작성되었습니다.
+
 오프라인 강의 진행시에 강의장 안에서 강사 PC(server)와 수강생 PC(client)가 LAN으로 채팅 + 파일 공유하는 Windows 앱.
 
 ## 다운로드
