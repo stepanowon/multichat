@@ -47,7 +47,12 @@ final class ChatViewModel: ObservableObject {
 
         for env in history.load() { messages.append(env) }
 
-        chat.onMessage = { [weak self] env in self?.append(env) }
+        chat.onMessage = { [weak self] env in
+            // 서버가 다른 수강생의 입장/퇴장을 System 메시지로 브로드캐스트하는데,
+            // 본인 채팅창에는 표시하지 않는다(자기 자신의 접속/종료 메시지는 로컬에서 별도로 appendSystem됨).
+            guard env.type != .system else { return }
+            self?.append(env)
+        }
         chat.onHistory = { [weak self] list in list.forEach { self?.append($0) } }
         chat.onDisconnected = { [weak self] in
             guard let self else { return }
