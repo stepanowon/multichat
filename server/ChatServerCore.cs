@@ -70,7 +70,6 @@ public class ChatServerCore
             client.Name = name;
 
             lock (_lock) _clients.Add(client);
-            Log?.Invoke($"{client.Name} 접속함");
             ClientListChanged?.Invoke(client.Name);
 
             List<ChatEnvelope> historySnapshot;
@@ -105,7 +104,6 @@ public class ChatServerCore
             tcp.Close();
             if (!string.IsNullOrEmpty(client.Name))
             {
-                Log?.Invoke($"{client.Name} 접속 종료");
                 ClientListChanged?.Invoke(client.Name);
             }
         }
