@@ -3,6 +3,10 @@
 [Oo]bj/
 publish/
 
+# mac/ 빌드 산출물 (Swift Package Manager - 소스에서 항상 재생성 가능)
+mac/.build/
+mac/dist/
+
 # dist/ 는 README 다운로드 링크가 가리키는 배포용 설치 파일이라 의도적으로 추적함
 
 # Visual Studio / Rider

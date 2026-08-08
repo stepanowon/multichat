@@ -2,18 +2,20 @@
 
 > 🤖 이 프로젝트는 [Claude Code](https://claude.com/claude-code)로 작성되었습니다.
 
-오프라인 강의 진행시에 강의장 안에서 강사 PC(server)와 수강생 PC(client)가 LAN으로 채팅 + 파일 공유하는 Windows 앱.
+오프라인 강의 진행시에 강의장 안에서 강사 PC(server)와 수강생 PC(client)가 LAN으로 채팅 + 파일 공유하는 앱. 강사용 서버와 Windows 수강생 클라이언트, macOS 수강생 클라이언트를 제공한다.
 
 ## 다운로드
 - [강사용 서버 설치 파일 (ChatServerSetup.exe)](dist/ChatServerSetup.exe)
-- [수강생용 클라이언트 설치 파일 (ChatClientSetup.exe)](dist/ChatClientSetup.exe)
+- [수강생용 클라이언트 설치 파일 - Windows (ChatClientSetup.exe)](dist/ChatClientSetup.exe)
+- [수강생용 클라이언트 설치 파일 - macOS (ChatClientMacSetup.dmg)](dist/ChatClientMacSetup.dmg)
 
 > 저장소에 원격 호스팅이 없어 저장소 내 상대 경로 링크다. GitHub 등에 올리면 그대로 다운로드 링크로 동작하고, 로컬에서는 `dist/` 폴더의 파일을 직접 받으면 된다.
 
 ## 구성
-- `shared/` — 채팅 프로토콜, 채팅 로그 UI, 이미지 처리, 로컬 이력 저장 공용 라이브러리
-- `server/` — 강사용 앱 (`ChatServer.exe`)
-- `client/` — 수강생용 앱 (`ChatClient.exe`)
+- `shared/` — 채팅 프로토콜, 채팅 로그 UI, 이미지 처리, 로컬 이력 저장 공용 라이브러리 (C#, Windows)
+- `server/` — 강사용 앱 (`ChatServer.exe`, Windows)
+- `client/` — 수강생용 앱 (`ChatClient.exe`, Windows)
+- `mac/` — 수강생용 macOS 네이티브 클라이언트 (Swift/SwiftUI, `client/`와 동일 프로토콜). 빌드 방법은 [mac/README.md](mac/README.md) 참고
 - `installer/` — Inno Setup 스크립트, `dist/` — 완성된 설치 파일(`ChatServerSetup.exe`, `ChatClientSetup.exe`)
 
 ---
