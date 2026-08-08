@@ -77,7 +77,7 @@ public class ChatServerCore
             lock (_lock) historySnapshot = new List<ChatEnvelope>(_instructorHistory);
             await LineProtocol.SendAsync(writer, new ChatEnvelope { Type = MsgType.History, History = historySnapshot }, _key);
 
-            await BroadcastSystemAsync($"{client.Name} 님이 입장했습니다.", exclude: client);
+            // 접속/퇴장 시스템 메시지는 채팅창에 브로드캐스트하지 않음(자기 창에만 표시)
 
             while (true)
             {
@@ -107,7 +107,6 @@ public class ChatServerCore
             {
                 Log?.Invoke($"{client.Name} 접속 종료");
                 ClientListChanged?.Invoke(client.Name);
-                await BroadcastSystemAsync($"{client.Name} 님이 퇴장했습니다.", exclude: null);
             }
         }
     }
@@ -151,12 +150,6 @@ public class ChatServerCore
         try { await LineProtocol.SendAsync(target.Writer, env, _key); }
         catch { return false; }
         return true;
-    }
-
-    private async Task BroadcastSystemAsync(string text, ConnectedClient? exclude)
-    {
-        var env = new ChatEnvelope { Type = MsgType.System, From = "시스템", Target = ChatTarget.All, Text = text, Time = DateTime.Now };
-        await BroadcastAsync(env, exclude);
     }
 
     private async Task BroadcastAsync(ChatEnvelope env, ConnectedClient? exclude)
