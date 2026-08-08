@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Windows.Forms;
 using Shared;
 
@@ -13,6 +14,7 @@ public class MainForm : Form
     private readonly ChatServerCore _chat = new();
     private readonly FileServerCore _files = new();
     private readonly ChatHistoryStore _history = new("server_history.jsonl");
+    private readonly List<ChatEnvelope> _allMessages = new();
 
     private static readonly Font BaseFont = new("Segoe UI", 9.9f);
     private static readonly Font HeaderFont = new("Segoe UI", 12.1f, FontStyle.Bold);
@@ -24,6 +26,7 @@ public class MainForm : Form
     private readonly TextBox _folderBox = new() { Width = 260, ReadOnly = true, Font = BaseFont };
     private readonly Button _browseBtn = new() { Text = "폴더 선택...", Font = BaseFont, AutoSize = true };
     private readonly Button _startBtn = new() { Text = "서버 시작", Font = BaseFont, Height = 32, Width = 110 };
+    private readonly Button _stopBtn = new() { Text = "서버 종료", Font = BaseFont, Height = 32, Width = 110, Enabled = false };
     private readonly Label _addressLabel = new() { Text = "서버 주소: (시작 전)", Font = BaseFont, AutoSize = true, ForeColor = AccentColor };
 
     private readonly ListBox _clientList = new() { Dock = DockStyle.Fill, Font = BaseFont, BorderStyle = BorderStyle.None };
@@ -31,6 +34,7 @@ public class MainForm : Form
     private readonly TextBox _inputBox = new() { Dock = DockStyle.Fill, Multiline = true, AcceptsReturn = true, Font = BaseFont, ScrollBars = ScrollBars.Vertical };
     private readonly ComboBox _targetCombo = new() { DropDownStyle = ComboBoxStyle.DropDownList, Font = BaseFont, Width = 160 };
     private readonly Button _sendBtn = new() { Text = "전송", Font = BaseFont, Width = 90, Height = 60, BackColor = AccentColor, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+    private readonly Button _exportBtn = new() { Text = "대화 내보내기 (Markdown)", AutoSize = true, Font = BaseFont };
 
     public MainForm()
     {
@@ -54,8 +58,10 @@ public class MainForm : Form
         _files.Log += AppendSystem;
 
         _startBtn.Click += (_, _) => StartServer();
+        _stopBtn.Click += (_, _) => StopServer();
         _browseBtn.Click += (_, _) => BrowseFolder();
         _sendBtn.Click += (_, _) => SendInstructorMessage();
+        _exportBtn.Click += (_, _) => ExportMarkdown();
         _inputBox.KeyDown += (_, e) =>
         {
             if (e.Control && e.KeyCode == Keys.Enter)
@@ -95,7 +101,7 @@ public class MainForm : Form
             new Label { Text = "채팅 포트:", AutoSize = true, Padding = new Padding(0, 7, 4, 0) }, _chatPortBox,
             new Label { Text = "파일 포트:", AutoSize = true, Padding = new Padding(10, 7, 4, 0) }, _filePortBox,
             new Label { Text = "공유 폴더:", AutoSize = true, Padding = new Padding(10, 7, 4, 0) }, _folderBox,
-            _browseBtn, _startBtn
+            _browseBtn, _startBtn, _stopBtn
         });
 
         _addressLabel.AutoSize = true;
@@ -127,6 +133,9 @@ public class MainForm : Form
         chatBorder.Controls.Add(_chatLog);
         chatContainer.Controls.Add(chatBorder);
         chatContainer.Controls.Add(bottomPanel);
+        chatContainer.Controls.Add(_exportBtn);
+        _exportBtn.Dock = DockStyle.Top;
+        _exportBtn.Margin = new Padding(0, 0, 0, 6);
         split.Panel1.Controls.Add(chatContainer);
 
         var rightPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10), BackColor = PanelBg };
@@ -160,6 +169,7 @@ public class MainForm : Form
         _files.Start(filePort);
 
         _startBtn.Enabled = false;
+        _stopBtn.Enabled = true;
         _chatPortBox.Enabled = _filePortBox.Enabled = _browseBtn.Enabled = false;
 
         var addresses = GetLocalIPv4Addresses();
@@ -168,6 +178,20 @@ public class MainForm : Form
             : $"서버 주소: 확인 불가 (채팅 포트 {chatPort} / 파일 포트 {filePort})";
 
         AppendSystem("서버가 시작되었습니다.");
+    }
+
+    /// <summary>새 접속만 막는다. 이미 접속 중인 클라이언트는 각자의 연결이 끊길 때 정리된다.</summary>
+    private void StopServer()
+    {
+        _chat.Stop();
+        _files.Stop();
+
+        _startBtn.Enabled = true;
+        _stopBtn.Enabled = false;
+        _chatPortBox.Enabled = _filePortBox.Enabled = _browseBtn.Enabled = true;
+        _addressLabel.Text = "서버 주소: (중지됨)";
+
+        AppendSystem("서버가 종료되었습니다.");
     }
 
     private static List<string> GetLocalIPv4Addresses()
@@ -246,6 +270,7 @@ public class MainForm : Form
 
     private void AppendMessage(ChatEnvelope env, bool isMine, bool persist = true)
     {
+        _allMessages.Add(env);
         if (env.Image != null)
             _chatLog.AppendImageMessage(env.Type, env.From, env.Target, env.To, env.Image, env.Time, isMine);
         else
@@ -258,6 +283,44 @@ public class MainForm : Form
     {
         if (InvokeRequired) { Invoke((MethodInvoker)(() => AppendSystem(text))); return; }
         AppendMessage(new ChatEnvelope { Type = MsgType.System, From = "시스템", Text = text, Time = DateTime.Now }, isMine: false);
+    }
+
+    private void ExportMarkdown()
+    {
+        using var dlg = new SaveFileDialog { Filter = "Markdown|*.md", FileName = $"chat_{DateTime.Now:yyyyMMdd_HHmmss}.md" };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+
+        var imageDir = Path.Combine(Path.GetDirectoryName(dlg.FileName)!, "export_images");
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"# 채팅 기록 ({DateTime.Now:yyyy-MM-dd HH:mm})");
+        sb.AppendLine();
+        foreach (var m in _allMessages)
+        {
+            var target = m.Target switch
+            {
+                ChatTarget.InstructorOnly => " (강사에게만)",
+                ChatTarget.Specific => $" (개인 메시지{(m.To != null ? " → " + m.To : "")})",
+                _ => ""
+            };
+            sb.AppendLine($"- **[{m.Time:MM/dd HH:mm:ss}] {m.From}{target}**:");
+            sb.AppendLine();
+            if (m.Image != null)
+            {
+                Directory.CreateDirectory(imageDir);
+                var imageFileName = $"img_{m.Time:yyyyMMdd_HHmmss_fff}.png";
+                File.WriteAllBytes(Path.Combine(imageDir, imageFileName), m.Image);
+                sb.AppendLine($"  ![이미지](export_images/{imageFileName})");
+            }
+            else
+            {
+                foreach (var line in m.Text.Replace("\r\n", "\n").Split('\n'))
+                    sb.AppendLine($"  {line}");
+            }
+            sb.AppendLine();
+        }
+        File.WriteAllText(dlg.FileName, sb.ToString(), LineProtocol.NoBom);
+        MessageBox.Show("내보내기가 완료되었습니다.");
     }
 
     private void RefreshClientList()

@@ -19,6 +19,7 @@ public class MainForm : Form
     private static readonly Color PanelBg = Color.FromArgb(247, 247, 249);
 
     private readonly Label _encryptionLabel = new() { Text = "🔒 암호화 연결 확인 중...", Font = BaseFont, ForeColor = Color.Gray, AutoSize = true };
+    private readonly Button _connToggleBtn = new() { Text = "연결 종료", Font = BaseFont, AutoSize = true };
     private readonly ChatLogView _chatLog = new() { Dock = DockStyle.Fill };
     private readonly TextBox _inputBox = new() { Dock = DockStyle.Fill, Multiline = true, AcceptsReturn = true, Font = BaseFont, ScrollBars = ScrollBars.Vertical };
     private readonly RadioButton _toAll = new() { Text = "전체 수강생", Checked = true, AutoSize = true, Font = BaseFont };
@@ -51,7 +52,14 @@ public class MainForm : Form
         {
             foreach (var e in list) AppendMessage(e);
         }));
-        _chat.Disconnected += () => Invoke((MethodInvoker)(() => AppendSystem("서버와 연결이 끊어졌습니다.")));
+        _chat.Disconnected += () => Invoke((MethodInvoker)(() =>
+        {
+            AppendSystem("서버와 연결이 끊어졌습니다.");
+            _encryptionLabel.Text = "⚠ 연결 끊김";
+            _encryptionLabel.ForeColor = Color.FromArgb(198, 40, 40);
+            _connToggleBtn.Text = "재연결";
+            _connToggleBtn.Enabled = true;
+        }));
 
         _sendBtn.Click += (_, _) => SendMessage();
         _inputBox.KeyDown += (_, e) =>
@@ -70,25 +78,48 @@ public class MainForm : Form
         _exportBtn.Click += (_, _) => ExportMarkdown();
         _refreshFilesBtn.Click += async (_, _) => await RefreshFileListAsync();
         _downloadBtn.Click += async (_, _) => await DownloadSelectedAsync();
-
-        Load += async (_, _) =>
+        _connToggleBtn.Click += async (_, _) =>
         {
-            try
-            {
-                var key = await _files.GetKeyAsync();
-                await _chat.ConnectAsync(host, chatPort, name, key);
-                _encryptionLabel.Text = "🔒 서버-클라이언트 종단 암호화 연결됨 (AES-256-GCM)";
-                _encryptionLabel.ForeColor = Color.FromArgb(0, 140, 60);
-                AppendSystem("서버에 접속했습니다.");
-                await RefreshFileListAsync();
-            }
-            catch (Exception ex)
-            {
-                _encryptionLabel.Text = "⚠ 암호화 연결 실패";
-                _encryptionLabel.ForeColor = Color.FromArgb(198, 40, 40);
-                MessageBox.Show("서버 접속 실패: " + ex.Message);
-            }
+            if (_chat.IsConnected) DisconnectFromServer();
+            else await ConnectToServerAsync(host, chatPort, name);
         };
+
+        Load += async (_, _) => await ConnectToServerAsync(host, chatPort, name);
+    }
+
+    private async Task ConnectToServerAsync(string host, int chatPort, string name)
+    {
+        _connToggleBtn.Enabled = false;
+        try
+        {
+            var key = await _files.GetKeyAsync();
+            await _chat.ConnectAsync(host, chatPort, name, key);
+            _encryptionLabel.Text = "🔒 서버-클라이언트 종단 암호화 연결됨 (AES-256-GCM)";
+            _encryptionLabel.ForeColor = Color.FromArgb(0, 140, 60);
+            AppendSystem("서버에 접속했습니다.");
+            _connToggleBtn.Text = "연결 종료";
+            await RefreshFileListAsync();
+        }
+        catch (Exception ex)
+        {
+            _encryptionLabel.Text = "⚠ 암호화 연결 실패";
+            _encryptionLabel.ForeColor = Color.FromArgb(198, 40, 40);
+            _connToggleBtn.Text = "재연결";
+            MessageBox.Show("서버 접속 실패: " + ex.Message);
+        }
+        finally
+        {
+            _connToggleBtn.Enabled = true;
+        }
+    }
+
+    private void DisconnectFromServer()
+    {
+        _chat.Disconnect();
+        _encryptionLabel.Text = "🔌 연결이 종료되었습니다.";
+        _encryptionLabel.ForeColor = Color.Gray;
+        AppendSystem("서버와의 연결을 종료했습니다.");
+        _connToggleBtn.Text = "재연결";
     }
 
     private void BuildLayout(string host, int chatPort)
@@ -96,8 +127,11 @@ public class MainForm : Form
         var topPanel = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = PanelBg, Padding = new Padding(12, 8, 12, 8) };
         topPanel.Controls.Add(new Label { Text = $"수강생 채팅 - {_myName}", Font = HeaderFont, AutoSize = true, Location = new Point(12, 6) });
         topPanel.Controls.Add(new Label { Text = $"서버: {host}:{chatPort}", Font = BaseFont, ForeColor = Color.Gray, AutoSize = true, Location = new Point(12, 32) });
-        topPanel.Controls.Add(_encryptionLabel);
-        _encryptionLabel.Location = new Point(12, 54);
+        var encryptionRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, Location = new Point(12, 44) };
+        _encryptionLabel.Margin = new Padding(0, 3, 12, 0);
+        encryptionRow.Controls.Add(_encryptionLabel);
+        encryptionRow.Controls.Add(_connToggleBtn);
+        topPanel.Controls.Add(encryptionRow);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 680, SplitterWidth = 6 };
 
